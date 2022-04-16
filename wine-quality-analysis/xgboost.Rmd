@@ -1,0 +1,96 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+
+## --- XGBoost ---  
+
+XGBoost, or "eXtreme Gradient Boosting", is an efficient and scalable implementation of boosted trees. It is notorious for winning many online data mining competitions (especially on Kaggle). 
+
+Let's try XGBoost on the combined dataset (mainly for convenience since XGBoost in R requires classes to start from 0)
+
+```{r}
+require(xgboost)
+
+# Read Dataset and into split into 80-20 train-test
+data <- read.csv('wine-quality-white-and-red.csv', header = TRUE) 
+data <- na.omit(data)
+data[,-c(1,13)] <- scale(data[,-c(1,13)])
+set.seed(1) # set seed 
+
+train <- sample(nrow(data) * 0.8) # 80-20 train-test split
+data.train <- data[train,]
+train.quality <- data.train$quality
+data.train <- data.train[,-c(1, 13)]
+
+data.test <- data[-train,]
+test.quality <- data.test$quality
+data.test <- data.test[,-c(1,13)]
+
+# Necessary conversions for XGB boosting
+trainXMatrix <- as.matrix(data.train)     # XGBoost only accepts matrices not data frame
+storage.mode(trainXMatrix) <- 'double' # Matrix must be real valued, not integer
+testXMatrix <- as.matrix(data.test)       # convert data frame to matrices
+storage.mode(testXMatrix) <- 'double' # Matrix must be real valued, not integer
+trainYvec <- as.integer(train.quality) -1    # extract response from training set; class label starts from 0
+testYvec  <- as.integer(test.quality) -1     # extract response from test set; class label starts from 0
+numberOfClasses <- max(trainYvec) + 1
+
+
+# algorithm parameters for XGBoost
+param <- list("objective" = "multi:softprob",
+              "eval_metric" = "merror",
+              "num_class" = numberOfClasses, 
+              "max_depth" = 2, # tree depth (not the same as interaction.depth in gbm!)
+              "eta" = 0.01) # shrinkage parameter
+
+nround_min = 200
+nround_max = 2000
+interval = 200
+
+fit_times <- rep(0,as.integer((nround_max - nround_min) / interval) + 1)
+test_accuracies <- rep(0,as.integer((nround_max - nround_min) / interval) + 1)
+
+i = 1
+
+start <- proc.time()
+for(nround in seq(nround_min, nround_max, interval)){
+  ptm <- proc.time()
+  set.seed(1)
+  xgbtree <- xgboost(param=param, 
+                     data = trainXMatrix, 
+                     label = trainYvec, 
+                     nrounds = nround, nfold=5, 
+                    prediction = TRUE) # number of trees 
+  
+  print(xgbtree.time <- proc.time() - ptm)  # running time: 1 min on my laptop
+  fit_times[i] = xgbtree.time
+    
+  xgbtree.prob <- predict(xgbtree, testXMatrix)    # this is a long vector
+  xgbtree.prob <- t(matrix(xgbtree.prob, nrow=numberOfClasses, ncol=nrow(data.test))) # need to convert it to a matrix
+  xgbtree.pred <- apply(xgbtree.prob, 1, which.max) # use the class with maximum probability as prediction
+  #table(xgbtree.pred, test.y) # show confusion matrix
+  print(xgbtree.acc <- mean(xgbtree.pred == as.numeric(test.quality)))  # classification accuracy on test set
+  test_accuracies[i] = xgbtree.acc
+  i = i+1
+}
+print(duration <- proc.time() - start) # total CV time
+
+# See which model has the highest test accuracy
+seq(nround_min, nround_max, interval)[which.max(test_accuracies)]
+max(test_accuracies)
+
+# Plot the test errors for each number of rounds tried (200 to 2000, interval of 200)
+plot(seq(nround_min, nround_max, interval), test_accuracies, xlab='number of rounds (B)')
+
+# Plot the fit times
+plot(seq(nround_min, nround_max, interval), fit_times, xlab='number of rounds (B)') 
+```
+
+
+

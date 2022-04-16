@@ -1,0 +1,263 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+## --- Random Forests ---
+
+
+## --- Data Preparation --- 
+
+Let's first try random forest regression. 
+
+```{r}
+# Import random forest library
+library(randomForest)
+
+# Preprocessing Steps: 
+
+# Read red and white wine datasets
+red <- read.csv('winequality-red.csv', header = TRUE, sep=";") 
+red <- na.omit(red)
+red.quality <- red$quality
+stopifnot(nrow(red) == 1599)
+
+white <- read.csv('winequality-white.csv', header = TRUE, sep=";") 
+white <- na.omit(white)
+white.quality <- white$quality
+stopifnot(nrow(white) == 4898)
+
+# Standardize predictors to normal distribution (mean 0 and std dev 1)
+red[,-12] <- scale(red[,-12]) 
+white[,-12] <- scale(white[,-12])
+
+# Split into training and test sets (80-20 split)
+set.seed(1) 
+
+# White dataset
+train_white_idx <- sample(nrow(white) * 0.8) # 80-20 train-test split
+train.white <- white[train_white_idx,]
+train.white.quality <- train.white$quality
+
+test.white <- white[-train_white_idx,]
+test.white.quality <- test.white$quality
+test.white <- test.white[,-13]
+
+# Red dataset
+train_red_idx <- sample(nrow(red) * 0.8) # 80-20 train-test split
+train.red <- red[train_red_idx,]
+train.red.quality <- train.red$quality
+
+test.red <- red[-train_red_idx,]
+test.red.quality <- test.red$quality
+test.red <- test.red[,-13]
+```
+
+```{r}
+nrow(white)
+nrow(red)
+```
+
+
+## --- Method 1: Random Forest Regressor ---
+
+# White Dataset:
+```{r}
+test_accuracies = rep(0, 11)
+test_accuracies_1 = rep(0, 11)
+fit_times = rep(0, 11)
+ptm <- proc.time()
+
+for(i in 1:11){
+  set.seed(1) 
+  start =  proc.time()
+  bag1 = randomForest(quality~., data=train.white, mtry=i, importance=TRUE) # default: ntree=500
+  fit_times[i] <- proc.time() - start
+  test_accuracies[i] = mean(abs(predict(bag1, test.white) - test.white.quality) <= 0.5)
+  test_accuracies_1[i] = mean(abs(predict(bag1, test.white) - test.white.quality) <= 1)
+}
+
+cv_time <- proc.time() - ptm 
+cv_time # record CV time
+
+plot(fit_times, xlab='mtry', main='Fit Times for RF Regression for White Wines')
+plot(test_accuracies, xlab='mtry',  main='Test Accuracy for RF Regression for White Wines')
+mtry = which.max(test_accuracies) 
+rf_acc_0.5_white <- test_accuracies[mtry]
+rf_acc_1_white <- test_accuracies_1[mtry]
+fit_time_white <- fit_times[mtry]
+
+mtry
+rf_acc_0.5_white
+rf_acc_1_white
+
+fit_time_white
+```
+
+# Red Dataset:
+```{r}
+test_accuracies = rep(0, 11)
+test_accuracies_1 = rep(0, 11)
+fit_times = rep(0, 11)
+ptm <- proc.time()
+
+for(i in 1:11){
+  set.seed(1) 
+  start =  proc.time()
+  bag1 = randomForest(quality~., data=train.red, mtry=i, importance=TRUE) # default: ntree=500
+  fit_times[i] <- proc.time() - start
+  test_accuracies[i] = mean(abs(predict(bag1, test.red) - test.red.quality) <= 0.5)
+  test_accuracies_1[i] = mean(abs(predict(bag1, test.red) - test.red.quality) <= 1)
+}
+
+cv_time <- proc.time() - ptm 
+cv_time # record CV time
+
+plot(fit_times, xlab='mtry', main='Fit Times for RF Regression for Red Wines')
+plot(test_accuracies, xlab='mtry', main='Test Accuracy for RF Regression for Red Wines')
+mtry = which.max(test_accuracies) 
+rf_acc_0.5_red <- test_accuracies[mtry]
+rf_acc_1_red <- test_accuracies_1[mtry]
+fit_time_red <- fit_times[mtry]
+
+mtry
+rf_acc_0.5_red
+rf_acc_1_red
+
+fit_time_red
+```
+
+## Weighted Average Test performances for both red and white dataset:
+
+# Within absolute margin 0.5
+```{r}
+(rf_acc_0.5_red * nrow(test.red) + rf_acc_0.5_white * nrow(test.white)) / (nrow(test.red) + nrow(test.white))
+```
+
+# Within absolute margin 1
+```{r}
+(rf_acc_1_red * nrow(test.red) + rf_acc_1_white * nrow(test.white)) / (nrow(test.red) + nrow(test.white))
+```
+
+
+## --- Data Preparation --- 
+
+We will now try the classification task. The key difference in the code below is that the response variable (quality) is converted into a factor, which is important for random forest classification.
+
+```{r}
+# Preprocessing Steps: 
+
+# Read red and white wine datasets
+red <- read.csv('winequality-red.csv', header = TRUE, sep=";") 
+red <- na.omit(red)
+red$quality <- as.factor(red$quality) # KEY: Convert into factor for classification tasks!
+red.quality <- red$quality
+stopifnot(nrow(red) == 1599)
+
+white <- read.csv('winequality-white.csv', header = TRUE, sep=";") 
+white <- na.omit(white)
+white$quality <- as.factor(white$quality) # KEY: Convert into factor for classification tasks!
+white.quality <- white$quality
+
+stopifnot(nrow(white) == 4898)
+
+# Standardize predictors to normal distribution (mean 0 and std dev 1)
+red[,-12] <- scale(red[,-12]) 
+white[,-12] <- scale(white[,-12])
+
+# Split into training and test sets (80-20 split)
+set.seed(1) 
+
+# White dataset
+train_white_idx <- sample(nrow(white) * 0.8) # 80-20 train-test split
+train.white <- white[train_white_idx,]
+train.white.quality <- train.white$quality
+
+test.white <- white[-train_white_idx,]
+test.white.quality <- test.white$quality
+test.white <- test.white[,-12]
+
+# Red dataset
+train_red_idx <- sample(nrow(red) * 0.8) # 80-20 train-test split
+train.red <- red[train_red_idx,]
+train.red.quality <- train.red$quality
+
+test.red <- red[-train_red_idx,]
+test.red.quality <- test.red$quality
+test.red <- test.red[,-12]
+```
+
+## --- Method 2: Random Forest Classifier ---
+
+# White Dataset:
+```{r}
+test_accuracies = rep(0, 11)
+fit_times = rep(0, 11)
+ptm <- proc.time()
+
+for(i in 1:11){
+  set.seed(1) 
+  start =  proc.time()
+  bag1 = randomForest(quality~., data=train.white, mtry=i, importance=TRUE) # default: ntree=500
+  fit_times[i] <- proc.time() - start
+  test_accuracies[i] = mean(as.character(predict(bag1, test.white)) == as.character(test.white.quality))
+}
+
+cv_time <- proc.time() - ptm 
+cv_time # record CV time
+
+plot(fit_times, xlab='mtry', main='Fit Times for RF Classification for White Wines')
+plot(test_accuracies, xlab='mtry',  main='Test Accuracy for RF Classification for White Wines')
+mtry = which.max(test_accuracies) 
+rf_acc_white <- test_accuracies[mtry]
+fit_time_white <- fit_times[mtry]
+
+mtry
+rf_acc_white
+
+fit_time_white
+```
+
+
+# Red Dataset:
+```{r}
+test_accuracies = rep(0, 11)
+fit_times = rep(0, 11)
+ptm <- proc.time()
+
+for(i in 1:11){
+  set.seed(1) 
+  start =  proc.time()
+  bag1 = randomForest(quality~., data=train.red, mtry=i, importance=TRUE) 
+  fit_times[i] <- proc.time() - start
+  test_accuracies[i] = mean(as.character(predict(bag1, test.red)) == as.character(test.red.quality))
+}
+
+cv_time <- proc.time() - ptm 
+cv_time # record CV time
+
+plot(fit_times, xlab='mtry', main='Fit Times for RF Classification for Red Wines')
+plot(test_accuracies, xlab='mtry',  main='Test Accuracy for RF Classification for Red Wines')
+mtry = which.max(test_accuracies) 
+rf_acc_red <- test_accuracies[mtry]
+fit_time_red <- fit_times[mtry]
+
+mtry
+rf_acc_red
+
+fit_time_red
+
+```
+
+
+## Weighted Average Test performances for both red and white dataset:
+
+```{r}
+(rf_acc_red * nrow(test.red) + rf_acc_white * nrow(test.white)) / (nrow(test.red) + nrow(test.white))
+```
+
+

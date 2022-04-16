@@ -1,0 +1,136 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+## Lasso Regression
+
+### 1. Use Split Dataset
+
+Red Dataset: 
+```{r}
+library(glmnet) 
+
+# Red Datasets
+red <- read.csv('winequality-red.csv', header = TRUE, sep=";") 
+red <- na.omit(red)
+red.quality <- red$quality
+red[,-12] <- scale(red[,-12]) # scale/standardization
+
+train_red_idx <- sample(nrow(red) * 0.8) # 80-20 train-test split
+train.red <- red[train_red_idx,]
+train.red.quality <- train.red$quality
+train.x.red <- model.matrix(quality~., train.red)
+
+test.red <- red[-train_red_idx,]
+test.red.quality <- test.red$quality
+test.x.red <- model.matrix(quality~., test.red)
+
+# Ridge Regression
+start = proc.time()
+cv.ridge = cv.glmnet(train.x.red, train.red.quality, alpha=0)
+proc.time() - start
+par(mfrow=c(1,1))
+cv.ridge
+plot(cv.ridge, main='Test MSE vs Lambda (Ridge, Red)')
+
+bestlam.red = cv.ridge$lambda.min
+bestlam.red
+start = proc.time()
+ridge.best.red = glmnet(train.x.red, train.red.quality, alpha=0, lambda=bestlam.red)
+proc.time() - start
+ridge.pred.red = predict(ridge.best.red, test.x.red)
+test_acc.red.ridge <- mean(abs(ridge.pred.red - test.red.quality) <= 0.5) # test accuracy (prediction within 0.5 of ground truth)
+test_acc.red.ridge
+
+# Lasso Regression
+start = proc.time()
+cv.lasso = cv.glmnet(train.x.red, train.red.quality, alpha=1)
+proc.time() - start
+par(mfrow=c(1,1))
+cv.lasso
+plot(cv.lasso, main='Test MSE vs Lambda (Lasso, Red)')
+
+bestlam.red = cv.lasso$lambda.min
+bestlam.red
+start = proc.time()
+lasso.best.red = glmnet(train.x.red, train.red.quality, alpha=1, lambda=bestlam.red)
+proc.time() - start
+lasso.pred.red = predict(lasso.best.red, test.x.red)
+test_acc.red.lasso <-  mean(abs(lasso.pred.red - test.red.quality) <= 0.5) # test accuracy (prediction within 0.5 of ground truth)
+test_acc.red.lasso
+
+
+```
+
+White Dataset:
+```{r}
+white <- read.csv('winequality-white.csv', header = TRUE, sep=";") 
+white <- na.omit(white)
+white.quality <- white$quality
+white[,-12] <- scale(white[,-12]) # scale/standardization
+
+set.seed(1)
+train_white_idx <- sample(nrow(white) * 0.8) # 80-20 train-test split
+train.white <- white[train_white_idx,]
+# train.white$quality <- as.factor(train.white$quality)
+train.white.quality <- train.white$quality
+train.x.white <- model.matrix(quality~., train.white)
+
+test.white <- white[-train_white_idx,]
+# test.white$quality <- as.factor(test.white$quality)
+test.white.quality <- test.white$quality
+test.x.white <- model.matrix(quality~., test.white)
+
+# Ridge Regression
+start = proc.time()
+cv.ridge = cv.glmnet(train.x.white, train.white.quality, alpha=0)
+proc.time() - start
+par(mfrow=c(1,1))
+cv.ridge
+plot(cv.ridge, main='Test MSE vs Lambda (Ridge, White)')
+
+bestlam.white = cv.ridge$lambda.min
+bestlam.white
+start = proc.time()
+ridge.best.white = glmnet(train.x.white, train.white.quality, alpha=0, lambda=bestlam.white)
+proc.time() - start
+ridge.pred.white = predict(ridge.best.white, test.x.white)
+test_acc.white.ridge <- mean(abs(ridge.pred.white - test.white.quality) <= 0.5) # test accuracy (prediction within 0.5 of ground truth)
+test_acc.white.ridge
+
+# Lasso Regression
+start = proc.time()
+cv.lasso = cv.glmnet(train.x.white, train.white.quality, alpha=1)
+proc.time() - start
+par(mfrow=c(1,1))
+cv.lasso
+plot(cv.lasso, main='Test MSE vs Lambda (Lasso, White)')
+
+bestlam.white = cv.lasso$lambda.min
+bestlam.white
+start = proc.time()
+lasso.best.white = glmnet(train.x.white, train.white.quality, alpha=1, lambda=bestlam.white)
+proc.time() - start
+lasso.pred.white = predict(lasso.best.white, test.x.white)
+test_acc.white.lasso <- mean(abs(lasso.pred.white - test.white.quality) <= 0.5) # test accuracy (prediction within 0.5 of ground truth)
+test_acc.white.lasso
+
+
+```
+Weighted Accuracy:
+```{r}
+(test_acc.white.ridge * nrow(test.white) + test_acc.red.ridge * nrow(test.red)) / ( nrow(test.white) +  nrow(test.red))
+(test_acc.white.lasso * nrow(test.white) + test_acc.red.lasso * nrow(test.red)) / ( nrow(test.white) +  nrow(test.red))
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+

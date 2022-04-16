@@ -1,0 +1,376 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+## 1. Combined Dataset (Red and White Wines in same dataset)
+
+Let's start with the dataset where red and white wines are combined. 
+
+## --- Data Preparation ---
+
+```{r}
+# Read Dataset and into split into 80-20 train-test
+data <- read.csv('wine-quality-white-and-red.csv', header = TRUE) 
+set.seed(1) # set seed 
+data$type <- as.numeric(data$type)
+data[,-13] <- scale(data[,-13])
+
+train <- sample(nrow(data) * 0.8) # 80-20 train-test split
+data.train <- data[train,]
+train.quality <- data.train$quality
+
+data.test <- data[-train,]
+test.quality <- data.test$quality
+data.test <- data.test[,-13]
+```
+
+## --- Method 1: Linear Regression ---
+
+```{r}
+# Method 1: Linear regression, rounding predictions to the nearest integer
+ptm <- proc.time()
+lr <- glm(quality~., data=data.train)
+print(lr.time <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+mean(abs(predict(lr, data.test) - test.quality) <= 0.5) # Test Accuracy, within absolute class deviation 0.5
+mean(abs(predict(lr, data.test) - test.quality) <= 1) # Test Accuracy, within absolute class deviation 1 
+
+# Inspect variables in the linear regression
+summary(lr)
+```
+
+## Get rid of non-significant variables (i.e. variables whose p-values are over 0.05)
+
+## --- Data Preparation ---
+
+```{r}
+# Read Dataset and into split into 80-20 train-test
+data <- read.csv('wine-quality-white-and-red.csv', header = TRUE) 
+set.seed(1) # set seed 
+data$type <- as.numeric(data$type)
+data[,-13] <- scale(data[,-13])
+
+train <- sample(nrow(data) * 0.8) # 80-20 train-test split
+data.train <- data[train,]
+train.quality <- data.train$quality
+
+data.test <- data[-train,]
+test.quality <- data.test$quality
+data.test <- data.test[,-13]
+```
+
+
+## --- Method 1: Linear regression ---
+
+```{r}
+# Now let's get rid of the least significant variables - citric.acid and chlorides
+data.train <- data.train[, -c(4, 6)]
+data.test <- data.test[, -c(4, 6)]
+
+# Try the same method again
+ptm <- proc.time()
+lr <- glm(quality~., data=data.train)
+print(lr.time <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+mean(abs(predict(lr, data.test) - test.quality) <= 0.5) # Test Accuracy, within absolute class deviation 0.5
+mean(abs(predict(lr, data.test) - test.quality) <= 1) # Test Accuracy, within absolute class deviation 1
+
+summary(lr)
+```
+
+## Back to Original Dataset
+
+## --- Data Preparation ---
+
+```{r}
+# Read Dataset and into split into 80-20 train-test
+data <- read.csv('wine-quality-white-and-red.csv', header = TRUE) 
+set.seed(1) # set seed 
+data$type <- as.numeric(data$type)
+data[,-13] <- scale(data[,-13])
+
+train <- sample(nrow(data) * 0.8) # 80-20 train-test split
+data.train <- data[train,]
+train.quality <- data.train$quality
+
+data.test <- data[-train,]
+test.quality <- data.test$quality
+data.test <- data.test[,-13]
+```
+
+## --- Method 2: Multinomial Logistic Regression ---
+
+```{r}
+# For multinomial logistic regression
+library(nnet)
+library(tidyverse)
+
+# For unfactoring categorical integer levels
+library(varhandle)
+
+ptm <- proc.time()
+model <- nnet::multinom(quality~., data = data.train) # Fit the model
+print(lr.time <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+predicted.classes <- model %>% predict(data.test) # Make predictions
+
+mean(predicted.classes == test.quality) # Test error rate
+
+summary(model) # Summarize the model 
+
+# Reference:
+# http://www.sthda.com/english/articles/36-classification-methods-essentials/147-multinomial-logistic-regression-essentials-in-r/
+```
+
+## 2. Split Dataset (Red and White Wines in separate datasets)
+
+Let's try splitting this dataset by red and white wine, since red and white wine may have different measures in terms of quality. 
+
+## --- Data Preparation ---
+
+```{r}
+# Read Dataset and into split into 80-20 train-test
+data <- read.csv('wine-quality-white-and-red.csv', header = TRUE) 
+
+set.seed(1) # set seed 
+
+data.red <- data[data$type=='red',-1]
+data.red[, -12] <- scale(data.red[, -12])
+data.white <- data[data$type=='white',-1]
+data.white[, -12] <- scale(data.white[, -12])
+
+# White wine dataset
+train.white <- sample(nrow(data.white) * 0.8) # 80-20 train-test split
+data.train.white <- data.white[train.white,]
+train.white.quality <- data.train.white$quality
+
+data.test.white <- data.white[-train.white,]
+test.quality.white <- data.test.white$quality
+data.test.white <- data.test.white[,-13]
+
+# Red wine dataset
+train.red <- sample(nrow(data.red) * 0.8) # 80-20 train-test split
+data.train.red <- data.red[train.red,]
+train.red.quality <- data.train.red$quality
+
+data.test.red <- data.red[-train.red,]
+test.quality.red <- data.test.red$quality
+data.test.red <- data.test.red[,-13]
+```
+
+## --- Linear regression ---
+
+## White Dataset:
+```{r}
+
+# White dataset
+ptm <- proc.time()
+lr.white <- glm(quality~., data=data.train.white)
+print(lr.time.white <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+test_acc_0.5_white <- mean(abs(predict(lr.white, data.test.white) - test.quality.white) <= 0.5) 
+test_acc_1_white <- mean(abs(predict(lr.white, data.test.white) - test.quality.white) <= 1) 
+
+# Test Accuracy, within absolute class deviation 0.5
+test_acc_0.5_white
+
+# Test Accuracy, within absolute class deviation 1
+test_acc_1_white
+
+# Inspect variables in the linear regression
+summary(lr.white)
+```
+
+## Red Dataset:
+```{r}
+# White dataset
+ptm <- proc.time()
+lr.red <- glm(quality~., data=data.train.red)
+print(lr.time.red <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+test_acc_0.5_red <- mean(abs(predict(lr.red, data.test.red) - test.quality.red) <= 0.5) 
+test_acc_1_red <- mean(abs(predict(lr.red, data.test.red) - test.quality.red) <= 1) 
+
+# Test Accuracy, within absolute class deviation 0.5
+test_acc_0.5_red
+
+# Test Accuracy, within absolute class deviation 1
+test_acc_1_red
+
+# Inspect variables in the linear regression
+summary(lr.red)
+```
+
+## Weighted Average Test performances for both red and white dataset:
+```{r}
+(test_acc_0.5_red * nrow(data.test.red) + test_acc_0.5_white * nrow(data.test.white)) / (nrow(data.test.red) + nrow(data.test.white)) # within absolute deviation 0.5
+(test_acc_1_red * nrow(data.test.red) + test_acc_1_white * nrow(data.test.white)) / (nrow(data.test.red) + nrow(data.test.white)) # within absolute deviation 1
+```
+
+## Get rid of non-significant variables (i.e. variables whose p-values are over 0.05)
+
+## --- Data Preparation ---
+
+```{r}
+# Read Dataset and into split into 80-20 train-test
+data <- read.csv('wine-quality-white-and-red.csv', header = TRUE) 
+
+set.seed(1) # set seed 
+
+data.red <- data[data$type=='red',-1]
+data.red[, -12] <- scale(data.red[, -12])
+data.white <- data[data$type=='white',-1]
+data.white[, -12] <- scale(data.white[, -12])
+
+# White wine dataset
+train.white <- sample(nrow(data.white) * 0.8) # 80-20 train-test split
+data.train.white <- data.white[train.white,]
+train.white.quality <- data.train.white$quality
+
+data.test.white <- data.white[-train.white,]
+test.quality.white <- data.test.white$quality
+data.test.white <- data.test.white[,-13]
+
+# Red wine dataset
+train.red <- sample(nrow(data.red) * 0.8) # 80-20 train-test split
+data.train.red <- data.red[train.red,]
+train.red.quality <- data.train.red$quality
+
+data.test.red <- data.red[-train.red,]
+test.quality.red <- data.test.red$quality
+data.test.red <- data.test.red[,-13]
+```
+
+## --- Remove insignificant variables ---
+
+```{r}
+# Now, let's try removing insignificant variables
+data.train.white <- data.train.white[,-c(1, 3, 5, 7)]
+data.train.red <- data.train.red[,-c(1, 3, 4, 6, 8, 9)]
+data.test.white <- data.test.white[,-c(1, 3, 5, 7)]
+data.test.red <- data.test.red[,-c(1, 3, 4, 6, 8, 9)]
+```
+
+## --- Linear regression ---
+
+## White Dataset:
+```{r}
+# White dataset
+ptm <- proc.time()
+lr.white <- glm(quality~., data=data.train.white)
+print(lr.time.white <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+test_acc_0.5_white <- mean(abs(predict(lr.white, data.test.white) - test.quality.white) <= 0.5) 
+test_acc_1_white <- mean(abs(predict(lr.white, data.test.white) - test.quality.white) <= 1) 
+
+# Test Accuracy, within absolute class deviation 0.5
+test_acc_0.5_white
+
+# Test Accuracy, within absolute class deviation 1
+test_acc_1_white
+
+# Inspect variables in the linear regression
+summary(lr.white)
+```
+
+## Red Dataset:
+```{r}
+ptm <- proc.time()
+lr.red <- glm(quality~., data=data.train.red)
+print(lr.time.red <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+test_acc_0.5_red <- mean(abs(predict(lr.red, data.test.red) - test.quality.red) <= 0.5) 
+test_acc_1_red <- mean(abs(predict(lr.red, data.test.red) - test.quality.red) <= 1) 
+
+# Test Accuracy, within absolute class deviation 0.5
+test_acc_0.5_red
+
+# Test Accuracy, within absolute class deviation 1
+test_acc_1_red
+
+# Inspect variables in the linear regression
+summary(lr.red)
+```
+
+## Weighted Average Test performances for both red and white dataset:
+```{r}
+# Average between red and white
+(test_acc_0.5_red * nrow(data.test.red) + test_acc_0.5_white * nrow(data.test.white)) / (nrow(data.test.red) + nrow(data.test.white)) # within absolute deviation 0.5
+(test_acc_1_red * nrow(data.test.red) + test_acc_1_white * nrow(data.test.white)) / (nrow(data.test.red) + nrow(data.test.white)) # within absolute deviation 1
+```
+
+
+## Back to Original (Split) Dataset
+
+## --- Data Preparation ---
+```{r}
+# Read Dataset and into split into 80-20 train-test
+data <- read.csv('wine-quality-white-and-red.csv', header = TRUE) 
+
+set.seed(1) # set seed 
+
+data.red <- data[data$type=='red',-1]
+data.red[, -12] <- scale(data.red[, -12])
+data.white <- data[data$type=='white',-1]
+data.white[, -12] <- scale(data.white[, -12])
+
+# White wine dataset
+train.white <- sample(nrow(data.white) * 0.8) # 80-20 train-test split
+data.train.white <- data.white[train.white,]
+train.white.quality <- data.train.white$quality
+
+data.test.white <- data.white[-train.white,]
+test.quality.white <- data.test.white$quality
+data.test.white <- data.test.white[,-13]
+
+# Red wine dataset
+train.red <- sample(nrow(data.red) * 0.8) # 80-20 train-test split
+data.train.red <- data.red[train.red,]
+train.red.quality <- data.train.red$quality
+
+data.test.red <- data.red[-train.red,]
+test.quality.red <- data.test.red$quality
+data.test.red <- data.test.red[,-13]
+```
+
+## --- Method 2: Multinomial Logistic Regression ---
+
+## White Dataset:
+```{r}
+# White dataset
+ptm <- proc.time()
+model.white <- nnet::multinom(quality~., data = data.train.white) # Fit the model
+print(lr.time.white <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+summary(model.white) # Summarize the model 
+predicted.classes.white <- model.white %>% predict(data.test.white) # Make predictions
+
+test_acc_white <- mean(predicted.classes.white == test.quality.white) # Test error for white dataset
+test_acc_white
+
+```
+
+## Red Dataset:
+```{r}
+# Red dataset
+ptm <- proc.time()
+model.red <- nnet::multinom(quality~., data = data.train.red) # Fit the model
+print(lr.time.red <- proc.time() - ptm) # record training time in seconds (use the THIRD value!)
+
+summary(model.red) # Summarize the model 
+predicted.classes.red <- model.red %>% predict(data.test.red) # Make predictions
+
+test_acc_red <- mean(predicted.classes.red == test.quality.red) # Test error for red dataset
+test_acc_red
+```
+
+## Weighted Average Test performances for both red and white dataset:
+```{r}
+# Average between red and white
+(test_acc_red * nrow(data.test.red) + test_acc_white * nrow(data.test.white)) / (nrow(data.test.red) + nrow(data.test.white)) 
+```

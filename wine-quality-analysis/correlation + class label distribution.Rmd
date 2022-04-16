@@ -1,0 +1,63 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+## --- Correlations Between Variables ---  
+
+To see why we get very low accuracies accross the board for this Wines dataset, let's look at the correlation relationships between the predictors. Let's also take a look at the class label distributions of the dataset (how balanced is it?).
+
+# Red Wines Dataset:
+```{r}
+red <- read.csv('winequality-red.csv', header = TRUE, sep=";") 
+red <- na.omit(red)
+red.quality <- red$quality
+red[,-12] <- scale(red[,-12])
+
+# Correlation matrix between variables
+corr <- cor(red[,-12])
+corr
+
+# Plot Heatmap
+heatmap(corr, main="Correlations Between Predictors for Red Wines", Colv = NA, Rowv = NA, scale="column")
+
+# Plot histogram
+hist(corr, main='Histogram of Predictor Pair Correlation Distribution for Red Wines')
+
+# Plot histogram between class labels
+class_dist <- hist(red.quality, main='Class Label (Wine Quality) Distribution for Red Wines')
+class_dist$counts
+```
+
+# White Wines Dataset:
+```{r}
+white <- read.csv('winequality-white.csv', header = TRUE, sep=";") 
+white <- na.omit(white)
+white.quality <- white$quality
+white[,-12] <- scale(white[,-12])
+
+# Correlation matrix between variables
+corr <- cor(white[,-12])
+corr
+
+# Plot Heatmap
+heatmap(corr, main="Correlations Between Predictors for White Wines", Colv = NA, Rowv = NA, scale="column")
+
+# Plot histogram
+hist(corr, main='Histogram of Predictor Pair Correlation Distribution for White Wines')
+
+# Plot histogram between class labels
+class_dist <- hist(white.quality, main='Class Label (Wine Quality) Distribution for White Wines')
+class_dist$counts
+```
+
+We can see that in the Wines dataset, there is very little correlation between the different predictors, so it is very difficult to find patterns among the variables, because there is not that many predictors (only 12 of them) and they are not very strong indicators. From the heat maps, we can see that most of the non-diagonal entries have a lighter color, which shows a weak relationship between the variables. Looking at the histograms, most of these predictor pairs have a correlation closer to zero, and very few of them greater than 0.3. This contributes to low accuracies accross different models, since we can't utilize any inter-predictor patterns to better learn about the data.
+
+Moreover, we can also see that the class labels (wine qualities) are extremely unbalanced, as the bulk of the labels are 5, 6, or 7, yet there are very few examples that are 4 or lower or 8 or above. The models, in turn, will also spit out class labels that are equally unbalanced, as the predictors will also predict mostly 5s, 6s, or 7s, while very rarely predicting any other quality value. 
+
+Reference: https://ai.plainenglish.io/estimating-wine-quality-with-machine-learning-ai-72-accuracy-8a5ff0bab3b2 
+
